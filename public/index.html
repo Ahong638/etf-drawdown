@@ -55,9 +55,10 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:5px 4px;t
 <main>
 <div class="hero"><div class="bubble">有錢就買，<br>打死不賣！</div><div class="hb"><span class="nt">JAMES 老師</span><div class="kick">CLEC ・ 長期視野 ・ 紀律投資</div><h1>ETF 跌幅計算器</h1></div></div>
 <p class="sub">輸入現價，立即算出距離最高點的跌幅與所在檔位。</p>
-<p class="sub">資料日期：<b id="dt">2026/11/06</b>（最高點與參考數字截至此日）</p>
+<p class="sub">資料日期：<b id="dt">2026/11/16</b>（最高點與參考數字截至此日）</p>
 <div class="slogan"><div class="tag">CLEC 中心理念</div><div class="q">富有是天賦，快樂是人權。</div><div class="s">長期持有那斯達克 100 指數，有錢就買，打死不賣！</div></div>
 <h2>五檔 ETF 跌幅計算</h2>
+<label class="pk"><input type="checkbox" id="auto" style="width:auto"> 盤中每 10 秒自動更新現價（會覆蓋手動輸入的價格）</label>
 <div id="list"></div>
 
 <h2>加權指數跌幅計算機</h2>
@@ -81,7 +82,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:5px 4px;t
 <div class="card wrap">
 <table><tr><th>維持率</th><th>跌破 140% 所需跌幅</th></tr><tbody id="mt"></tbody></table>
 </div>
-<p class="note"><b>免責聲明：</b>本頁僅供參考，不構成投資建議。最新收盤價取自證交所公開資料，收盤後才更新，盤中看到的是前一個交易日的收盤價；可能取得失敗，請以券商報價為準。數值依你輸入的內容與公式計算，實際維持率、補繳規定與借款條件，請以券商或銀行公告為準。<br><br>公式：觸及 140% 所需跌幅 = 1 − 140 ÷ 維持率（假設借款金額固定，擔保品市值隨 00662 股價等比例變動）。加權指數為大盤指數，與五檔 ETF 並非直接對應，僅作歷史高點跌幅參考。表格數值皆由公式即時計算；原圖 00675L 的 −40% 檔（200.20）疑為筆誤，此處以最高點 367.00 × 60% = 220.20 計算。</p>
+<p class="note"><b>免責聲明：</b>本頁僅供參考，不構成投資建議。盤中現價取自證交所基本市況報導網站，可能延遲數秒或取得失敗；取不到時改用最新收盤價。請以券商報價為準。數值依你輸入的內容與公式計算，實際維持率、補繳規定與借款條件，請以券商或銀行公告為準。<br><br>公式：觸及 140% 所需跌幅 = 1 − 140 ÷ 維持率（假設借款金額固定，擔保品市值隨 00662 股價等比例變動）。加權指數為大盤指數，與五檔 ETF 並非直接對應，僅作歷史高點跌幅參考。表格數值皆由公式即時計算；原圖 00675L 的 −40% 檔（200.20）疑為筆誤，此處以最高點 367.00 × 60% = 220.20 計算。</p>
 <div class="foot">科技驅動未來 ・ 投資連結世界 ・ 與人類的進步同行</div>
 </main>
 <script>
@@ -98,7 +99,7 @@ var list=document.getElementById("list");
 function f(x,d){return x.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})}
 D.forEach(function(d){
   var c=document.createElement("div");c.className="card";
-  c.innerHTML='<div class="row"><div><div class="nm">'+d.n+'</div><div class="pk" style="color:var(--hi);font-weight:600">最高點 '+f(d.p,2)+'</div></div><input id="i'+d.id+'" type="number" inputmode="decimal" placeholder="現價"></div><div class="pk"><a href="#" class="live fill" data-id="'+d.id+'">取得最新收盤價</a> <span id="lv'+d.id+'"></span></div><div class="res" id="r'+d.id+'">輸入現價後顯示跌幅。</div><div class="bar"><i id="b'+d.id+'"></i></div>';
+  c.innerHTML='<div class="row"><div><div class="nm">'+d.n+'</div><div class="pk" style="color:var(--hi);font-weight:600">最高點 '+f(d.p,2)+'</div></div><input id="i'+d.id+'" type="number" inputmode="decimal" placeholder="現價"></div><div class="pk"><a href="#" class="live" style="color:var(--ac);font-weight:600;text-decoration:none" data-id="'+d.id+'">取得現價</a> <span id="lv'+d.id+'"></span></div><div class="res" id="r'+d.id+'">輸入現價後顯示跌幅。</div><div class="bar"><i id="b'+d.id+'"></i></div>';
   (d.idx?document.getElementById("list2"):list).appendChild(c);
   document.getElementById("i"+d.id).addEventListener("input",function(e){calc(d,parseFloat(e.target.value))});
 });
@@ -129,7 +130,6 @@ document.getElementById("mt").innerHTML=t;
 var it="";[0,10,20,30,40,50,60,65].forEach(function(p){it+="<tr><td>"+(p?"−"+p+"%":"0%（歷史最高點）")+"</td><td>"+f(49822.55*(1-p/100),2)+"</td></tr>"});
 it+="<tr><td>−65.09%（關稅戰低點）</td><td>17,391.76</td></tr>";
 document.getElementById("it").innerHTML=it;
-document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a.fill");if(!a)return;e.preventDefault();var d=D.filter(function(x){return x.id===a.getAttribute("data-id")})[0],i=document.getElementById("i"+d.id);i.value=d.c;i.dispatchEvent(new Event("input"))});
 function loan(){
   var L=parseFloat(document.getElementById("ln").value),S=parseFloat(document.getElementById("sh").value),T=parseFloat(document.getElementById("tg").value)||160,P=parseFloat(document.getElementById("i662").value),o=document.getElementById("lnres");
   if(!(L>0&&S>0&&P>0)){o.textContent="填入借款金額、股數，並在上方填 00662 現價，自動算出維持率與補繳金額。";return}
@@ -143,8 +143,10 @@ function loan(){
   o.innerHTML=h;
 }
 ["ln","sh","tg","i662"].forEach(function(id){document.getElementById(id).addEventListener("input",loan)});
-document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a.live");if(!a)return;e.preventDefault();var id=a.getAttribute("data-id"),s=document.getElementById("lv"+id);s.textContent="取得中…";(window.QP=window.QP||fetch("/.netlify/functions/quote").then(function(r){if(!r.ok)throw 0;return r.json()})).then(function(q){var x=q[id];if(!x||!(x.price>0))throw 0;var i=document.getElementById("i"+id);i.value=x.price;i.dispatchEvent(new Event("input"));s.textContent="最新收盤價 "+(x.date||"")}).catch(function(){window.QP=null;s.textContent="取得失敗，請手動輸入"})});
+function lvFetch(){if(window.QP&&Date.now()-window.QT<8000)return window.QP;window.QT=Date.now();window.QP=fetch("/.netlify/functions/quote").then(function(r){if(!r.ok)throw 0;return r.json()});return window.QP}
+document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a.live");if(!a)return;e.preventDefault();var id=a.getAttribute("data-id"),s=document.getElementById("lv"+id);s.textContent="取得中…";lvFetch().then(function(q){var x=q[id];if(!x||!(x.price>0))throw 0;var i=document.getElementById("i"+id);i.value=x.price;i.dispatchEvent(new Event("input"));s.textContent=x.live?"即時價 "+x.time:"最新收盤價 "+(x.date||"")}).catch(function(){window.QP=null;s.textContent="取得失敗，請手動輸入"})});
 window.addEventListener("load",function(){document.querySelectorAll("a.live").forEach(function(a){a.click()})});
+setInterval(function(){var c=document.getElementById("auto");if(c&&c.checked){window.QP=null;document.querySelectorAll("a.live").forEach(function(a){a.click()})}},10000);
 </script>
 </body>
 </html>

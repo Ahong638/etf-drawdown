@@ -1,35 +1,58 @@
-// Netlify Function: 從證交所 OpenAPI 取得「最新收盤價」（官方開放資料，收盤後更新）
-const MAP = { "00662": "662", "00670L": "670", "00631L": "631", "00675L": "675", "00685L": "685" };
+// Netlify Function: 盤中取「即時價」(證交所基本市況報導網站, 非官方介面)，取不到就改用「最新收盤價」(證交所 OpenAPI)
+const MIS = { "00662": "662", "00670L": "670", "00631L": "631", "00675L": "675", "00685L": "685", "T00": "idx" };
+const EX = ["tse_00662.tw", "tse_00670L.tw", "tse_00631L.tw", "tse_00675L.tw", "tse_00685L.tw", "tse_t00.tw"].join("|");
+const IDS = ["662", "670", "631", "675", "685", "idx"];
+const UA = "Mozilla/5.0";
 const num = (v) => parseFloat(String(v).replace(/,/g, ""));
-// 民國 YYYMMDD 或西元 YYYYMMDD → YYYY/MM/DD
 const fmt = (d) => {
   d = String(d).replace(/\D/g, "");
   if (d.length === 7) d = String(parseInt(d.slice(0, 3), 10) + 1911) + d.slice(3);
   return d.length === 8 ? d.slice(0, 4) + "/" + d.slice(4, 6) + "/" + d.slice(6) : "";
 };
-const get = async (path) => {
+const getOpen = async (path) => {
   const r = await fetch("https://openapi.twse.com.tw/v1" + path, { headers: { accept: "application/json" } });
   if (!r.ok) throw new Error(path + " " + r.status);
   return r.json();
 };
 
-exports.handler = async () => {
-  const out = {};
+async function live(out) {
+  const home = await fetch("https://mis.twse.com.tw/stock/index.jsp", { headers: { "User-Agent": UA } });
+  const cookie = (home.headers.getSetCookie ? home.headers.getSetCookie() : []).map((c) => c.split(";")[0]).join("; ");
+  const url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=" + encodeURIComponent(EX) + "&json=1&delay=0&_=" + Date.now();
+  const r = await fetch(url, { headers: { Cookie: cookie, "User-Agent": UA, Referer: "https://mis.twse.com.tw/stock/index.jsp" } });
+  const j = await r.json();
+  for (const m of j.msgArray || []) {
+    const id = MIS[String(m.c).toUpperCase()];
+    const z = num(m.z);
+    if (id && z > 0) out[id] = { price: z, live: true, time: m.t };
+  }
+}
+
+async function closing(out) {
   try {
-    const rows = await get("/exchangeReport/STOCK_DAY_ALL");
+    const rows = await getOpen("/exchangeReport/STOCK_DAY_ALL");
     for (const x of rows) {
-      const id = MAP[String(x.Code).trim().toUpperCase()];
+      const id = MIS[String(x.Code).trim().toUpperCase()];
       const p = num(x.ClosingPrice);
-      if (id && p > 0) out[id] = { price: p, date: fmt(x.Date) };
+      if (id && id !== "idx" && p > 0 && !out[id]) out[id] = { price: p, live: false, date: fmt(x.Date) };
     }
   } catch (e) {}
-  try {
-    const h = await get("/indicesReport/MI_5MINS_HIST");
-    const last = h.slice().sort((a, b) => String(a.Date || a["日期"]).localeCompare(String(b.Date || b["日期"]))).pop();
-    const key = Object.keys(last).find((k) => /Closing|收盤/.test(k));
-    const p = num(last[key]);
-    if (p > 0) out.idx = { price: p, date: fmt(last.Date || last["日期"]) };
-  } catch (e) {}
+  if (!out.idx) {
+    try {
+      const h = await getOpen("/indicesReport/MI_5MINS_HIST");
+      const dk = (r) => String(r.Date || r["日期"]);
+      const last = h.slice().sort((a, b) => dk(a).localeCompare(dk(b))).pop();
+      const key = Object.keys(last).find((k) => /Closing|收盤/.test(k));
+      const p = num(last[key]);
+      if (p > 0) out.idx = { price: p, live: false, date: fmt(dk(last)) };
+    } catch (e) {}
+  }
+}
+
+exports.handler = async () => {
+  const out = {};
+  try { await live(out); } catch (e) {}
+  if (IDS.some((id) => !out[id])) await closing(out);
   if (!Object.keys(out).length) return { statusCode: 502, body: JSON.stringify({ error: "fetch failed" }) };
-  return { statusCode: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" }, body: JSON.stringify(out) };
+  return { statusCode: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=8" }, body: JSON.stringify(out) };
 };
