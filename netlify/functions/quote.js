@@ -27,8 +27,10 @@ async function live(out) {
   if (!(j.msgArray || []).length) throw new Error("MIS empty msgArray, rtcode=" + j.rtcode);
   for (const m of j.msgArray || []) {
     const id = MIS[String(m.c).toUpperCase()];
-    const z = num(m.z);
-    if (id && z > 0) out[id] = { price: z, live: true, time: m.t };
+    let z = num(m.z), t = m.t;
+    // 該秒沒有成交時 z 是 "-"，改用內層 trade 的最近一筆成交價
+    if (!(z > 0) && m.trade && num(m.trade.z) > 0) { z = num(m.trade.z); t = m.trade.t || m.t; }
+    if (id && z > 0) out[id] = { price: z, live: true, time: t };
   }
 }
 
