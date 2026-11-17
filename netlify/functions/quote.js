@@ -20,7 +20,11 @@ async function live(out) {
   const cookie = (home.headers.getSetCookie ? home.headers.getSetCookie() : []).map((c) => c.split(";")[0]).join("; ");
   const url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=" + encodeURIComponent(EX) + "&json=1&delay=0&_=" + Date.now();
   const r = await fetch(url, { headers: { Cookie: cookie, "User-Agent": UA, Referer: "https://mis.twse.com.tw/stock/index.jsp" } });
-  const j = await r.json();
+  const txt = await r.text();
+  if (!r.ok) throw new Error("MIS http " + r.status + " " + txt.slice(0, 100));
+  let j;
+  try { j = JSON.parse(txt); } catch (e) { throw new Error("MIS non-JSON: " + txt.slice(0, 120)); }
+  if (!(j.msgArray || []).length) throw new Error("MIS empty msgArray, rtcode=" + j.rtcode);
   for (const m of j.msgArray || []) {
     const id = MIS[String(m.c).toUpperCase()];
     const z = num(m.z);
@@ -49,10 +53,12 @@ async function closing(out) {
   }
 }
 
-exports.handler = async () => {
+exports.handler = async (event) => {
   const out = {};
-  try { await live(out); } catch (e) {}
+  let liveError = null;
+  try { await live(out); } catch (e) { liveError = String((e && e.message) || e); }
   if (IDS.some((id) => !out[id])) await closing(out);
+  if (event && event.queryStringParameters && event.queryStringParameters.debug) out._debug = { liveError, liveCount: IDS.filter((id) => out[id] && out[id].live).length };
   if (!Object.keys(out).length) return { statusCode: 502, body: JSON.stringify({ error: "fetch failed" }) };
-  return { statusCode: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=8" }, body: JSON.stringify(out) };
+  return { statusCode: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=20" }, body: JSON.stringify(out) };
 };
